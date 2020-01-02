@@ -109,11 +109,30 @@ div#calendar ul.dates li{
     font-size:25px;
     background-color: #DDD;
     color:#000;
-    text-align:center; 
+    text-align:center;
 }
 
 div#calendar ul.dates li.this_today {
     background-color: #CC6699;
+}
+
+div#calendar ul.dates button.feiertag {
+    background-image: url("png/green_info.png");
+}
+
+div#calendar ul.dates button.event {
+    background-image: url("png/gold_mark.png");
+}
+
+div#calendar ul.dates button.event2 {
+    background-image: url("png/red_mark.png");
+}
+
+div#calendar ul.dates img.fullmoon {
+    height: 22px;
+    width: 22px;
+    margin-top: 55px;
+    position: absolute;
 }
 
 :focus{

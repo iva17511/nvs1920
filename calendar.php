@@ -1,15 +1,14 @@
 <?php
+setlocale(LC_TIME, "de_DE");
 class Calendar {
 
-    /**
-     * Constructor
-     */
+    /** Constructor */
     public function __construct(){     
         $this->naviHref = htmlentities($_SERVER['PHP_SELF']);
     }
      
     /********************* PROPERTY ********************/  
-    private $dayLabels = array("Mon","Tue","Wed","Thu","Fri","Sat","Sun");
+    private $dayLabels = array("Mo","Di","Mi","Do","Fr","Sa","So");
      
     private $currentYear=0;
     private $currentMonth=0;
@@ -17,13 +16,15 @@ class Calendar {
     private $currentDate=null;
     private $daysInMonth=0;
     private $naviHref= null;
-     
+
+    private $fullmoons=array();
+
     /********************* PUBLIC **********************/  
         
-    /**
-    * print out the calendar
-    */
+    /** print out the calendar */
     public function show() {
+
+        /** set month and year */
         $year  = null;
         $month = null;
          
@@ -31,13 +32,31 @@ class Calendar {
             $year = $_GET['year'];
         } else if(null==$year){
             $year = date("Y",time());
-        }          
-         
+        }
+
         if(null==$month&&isset($_GET['month'])){
             $month = $_GET['month'];
         } else if(null==$month){
             $month = date("m",time());
-        }                  
+        }
+
+        /** Do all Sql Statements for the month */
+        global $db;
+
+        if(!$stmt = $db->prepare("select * from `vollmonde` where MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+            $error = $db->errno . ' ' . $db->error;
+            echo $error;
+        }
+        $stmt->bind_param('ss', $month, $year);
+        if($stmt->execute()){
+            $result = $stmt->get_result();
+            if($result->num_rows>0){
+                while($row = $result->fetch_assoc()){
+                    $this->fullmoons[] = $row['Datum'];
+                }
+                //$stmt->close();
+            }
+        }
          
         $this->currentYear=$year;
         $this->currentMonth=$month;
@@ -71,9 +90,7 @@ class Calendar {
     }
      
     /********************* PRIVATE **********************/ 
-    /**
-    * create the li element for ul
-    */
+    /** create the li element for ul */
     private function _showDay($cellNumber){
          
         if($this->currentDay==0){
@@ -84,22 +101,27 @@ class Calendar {
                 $this->currentDay=1;
             }
         }
-         
+
+        /** day in month */
         if( ($this->currentDay!=0)&&($this->currentDay<=$this->daysInMonth) ){
              
             $this->currentDate = date('Y-m-d',strtotime($this->currentYear.'-'.$this->currentMonth.'-'.($this->currentDay)));
              
             $cellContent = $this->currentDay;
+
+
+            if(in_array($this->currentDate, $this->fullmoons)){
+                $cellContent.='<img src="png/vollmond.png" class="fullmoon">';
+            }
+
             $this->currentDay++;
         }else{
             $this->currentDate =null;
             $cellContent=null;
         }
 
-        $today_day = date("d");
-        $today_mon = date("m");
-        $today_yea = date("Y");
-        $class_day = ($cellContent == $today_day && $this->currentMonth == $today_mon && $this->currentYear == $today_yea ? "this_today" : "nums_days");
+        /** check if date is current day */
+        $class_day = ($cellContent == date("d") && $this->currentMonth == date("m") && $this->currentYear == date("Y") ? "this_today" : "nums_days");
 
         return '<li class="'.$class_day.'">'.$cellContent.'</li>';
         /*
@@ -108,9 +130,7 @@ class Calendar {
         */
     }
      
-    /**
-    * create navigation
-    */
+    /** create navigation */
     private function _createNavi(){
          
         $nextMonth = $this->currentMonth==12?1:intval($this->currentMonth)+1;
@@ -123,15 +143,13 @@ class Calendar {
          
         return
             '<div class="header">'.
-                '<a class="prev" href="'.$this->naviHref.'?month='.sprintf('%02d',$preMonth).'&year='.$preYear.'">Prev</a>'.
+                '<a class="prev" href="'.$this->naviHref.'?month='.sprintf('%02d',$preMonth).'&year='.$preYear.'">zurück</a>'.
                     '<span class="title">'.date('Y M',strtotime($this->currentYear.'-'.$this->currentMonth.'-1')).'</span>'.
-                '<a class="next" href="'.$this->naviHref.'?month='.sprintf("%02d", $nextMonth).'&year='.$nextYear.'">Next</a>'.
+                '<a class="next" href="'.$this->naviHref.'?month='.sprintf("%02d", $nextMonth).'&year='.$nextYear.'">weiter</a>'.
             '</div>';
     }
          
-    /**
-    * create calendar week labels
-    */
+    /** create calendar week labels */
     private function _createLabels(){  
                  
         $content='';
@@ -145,12 +163,9 @@ class Calendar {
          
         return $content;
     }
-     
-     
-     
-    /**
-    * calculate number of weeks in a particular month
-    */
+
+
+    /** calculate number of weeks in a particular month */
     private function _weeksInMonth($month=null, $year=null){
          
         if(null==($year)) {
@@ -176,9 +191,7 @@ class Calendar {
         return $numOfweeks;
     }
  
-    /**
-    * calculate number of days in a particular month
-    */
+    /** calculate number of days in a particular month */
     private function _daysInMonth($month=null,$year=null){
          
         if(null==($year))
