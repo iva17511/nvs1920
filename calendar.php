@@ -17,6 +17,9 @@ class Calendar {
     private $daysInMonth=0;
     private $naviHref= null;
 
+    private $events=array();
+    private $importantEvents=array();
+    private $holidays=array();
     private $fullmoons=array();
 
     /********************* PUBLIC **********************/  
@@ -43,6 +46,56 @@ class Calendar {
         /** Do all Sql Statements for the month */
         global $db;
 
+        /** Ereignisse */
+        if(!$stmt = $db->prepare("select * from `ereignisse` where MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+            $error = $db->errno . ' ' . $db->error;
+            echo $error;
+        }
+        $stmt->bind_param('ss', $month, $year);
+        if($stmt->execute()){
+            $result = $stmt->get_result();
+            if($result->num_rows>0){
+                while($row = $result->fetch_assoc()){
+                    $this->events[] = $row['Datum'];
+                }
+                $stmt->close();
+            }
+        }
+
+        /** wichtige Ereignisse */
+        if(!$stmt = $db->prepare("select * from `ereignisse` where `Wichtigkeit` = 1 AND MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+            $error = $db->errno . ' ' . $db->error;
+            echo $error;
+        }
+        $stmt->bind_param('ss', $month, $year);
+        if($stmt->execute()){
+            $result = $stmt->get_result();
+            if($result->num_rows>0){
+                while($row = $result->fetch_assoc()){
+                    $this->importantEvents[] = $row['Datum'];
+                }
+                $stmt->close();
+            }
+        }
+
+
+        /** Feiertage */
+        if(!$stmt = $db->prepare("select * from `feiertage` where MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+            $error = $db->errno . ' ' . $db->error;
+            echo $error;
+        }
+        $stmt->bind_param('ss', $month, $year);
+        if($stmt->execute()){
+            $result = $stmt->get_result();
+            if($result->num_rows>0){
+                while($row = $result->fetch_assoc()){
+                    $this->holidays[] = $row['Datum'];
+                }
+                $stmt->close();
+            }
+        }
+
+        /** Vollmonde */
         if(!$stmt = $db->prepare("select * from `vollmonde` where MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
             $error = $db->errno . ' ' . $db->error;
             echo $error;
@@ -54,10 +107,11 @@ class Calendar {
                 while($row = $result->fetch_assoc()){
                     $this->fullmoons[] = $row['Datum'];
                 }
-                //$stmt->close();
+                $stmt->close();
             }
         }
-         
+
+        /** create calendar */
         $this->currentYear=$year;
         $this->currentMonth=$month;
         $this->daysInMonth=$this->_daysInMonth($month,$year);  
@@ -81,10 +135,11 @@ class Calendar {
                                 }
                                  
                                 $content.='</ul>';
-                                $content.='<div class="clear"></div>';     
-             
+                                $content.='<div class="clear"></div>';
+
                         $content.='</div>';
-                 
+
+                        $content.='<br><form style="display: inline" action="erstelle_ereignis.php" method="post"><input type="hidden" name="monat" value="'.$month.'"><input type="hidden" name="jahr" value="'.$year.'"><button class="btn btn-primary">Neues Ereignis erstellen</button></form>';
         $content.='</div>';
         return $content;   
     }
@@ -106,12 +161,28 @@ class Calendar {
         if( ($this->currentDay!=0)&&($this->currentDay<=$this->daysInMonth) ){
              
             $this->currentDate = date('Y-m-d',strtotime($this->currentYear.'-'.$this->currentMonth.'-'.($this->currentDay)));
-             
-            $cellContent = $this->currentDay;
 
+            $cellContent = "";
 
+            /** check if events/holidays are on this day */
+            if(in_array($this->currentDate, $this->events)){
+                $importance="gold";
+                if(in_array($this->currentDate, $this->importantEvents)) /** check if an important event is on this day */
+                    $importance="red";
+
+                $cellContent.='<form method="post" action="mehr_informationen_ereignis.php"> <input type="hidden" name="datum" value="'.$this->currentDate.'"> <input type="image" src="png/'.$importance.'_mark.png" alt="E"> </form>';
+            }
+
+            if(in_array($this->currentDate, $this->holidays)){
+                $cellContent.='<form method="post" action="mehr_informationen_feiertag.php"> <input type="hidden" name="datum" value="'.$this->currentDate.'"> <input type="image" src="png/green_info.png" class="holiday" alt="FT"> </form>';
+            }
+
+            /** set day */
+            $cellContent .= $this->currentDay;
+
+            /** check if a fullmoon is on this day */
             if(in_array($this->currentDate, $this->fullmoons)){
-                $cellContent.='<img src="png/vollmond.png" class="fullmoon">';
+                $cellContent.='<img src="png/vollmond.png" class="fullmoon" alt="VM">';
             }
 
             $this->currentDay++;
@@ -121,13 +192,9 @@ class Calendar {
         }
 
         /** check if date is current day */
-        $class_day = ($cellContent == date("d") && $this->currentMonth == date("m") && $this->currentYear == date("Y") ? "this_today" : "nums_days");
+        $class_day = ($this->currentDay == (date("d")+1) && $this->currentMonth == date("m") && $this->currentYear == date("Y") ? "this_today" : "nums_days");
 
         return '<li class="'.$class_day.'">'.$cellContent.'</li>';
-        /*
-        return '<li id="li-'.$this->currentDate.'" class="'.($cellNumber%7==1?' start ':($cellNumber%7==0?' end ':' ')).
-                ($cellContent==null?'mask':'').'">'.$cellContent.'</li>';
-        */
     }
      
     /** create navigation */
