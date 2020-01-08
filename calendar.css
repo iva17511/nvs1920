@@ -116,6 +116,10 @@ div#calendar ul.dates li.this_today {
     background-color: #CC6699;
 }
 
+div#calendar ul.dates li.before_today {
+    background-color: silver;
+}
+
 div#calendar ul.dates div {
     text-align: left;
     position: absolute;

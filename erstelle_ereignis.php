@@ -1,13 +1,13 @@
 <?php
 session_start();
-$monat = (isset ($_SESSION['monat'])) ? $_SESSION['monat'] : (isset ($_POST['monat'])) ? $_POST['monat'] : date("m");
-$jahr = (isset ($_SESSION['jahr'])) ? $_SESSION['jahr'] : (isset ($_POST['jahr'])) ? $_POST['jahr'] : date("Y");
+$monat = (isset ($_SESSION['monat']) ? $_SESSION['monat'] : (isset ($_POST['monat']) ? $_POST['monat'] : date("m")));
+$jahr = (isset ($_SESSION['jahr']) ? $_SESSION['jahr'] : (isset ($_POST['jahr']) ? $_POST['jahr'] : date("Y")));
 
-if (!isset($_SESSION['monat']))
-    $_SESSION['monat']=$monat;
+$_SESSION['monat']=$monat;
+$_SESSION['jahr']=$jahr;
 
-if (!isset($_SESSION['jahr']))
-    $_SESSION['jahr']=$jahr;
+include_once 'dbConfig.php';
+global $db;
 
 if(isset($_POST['submit'])){
     $name = $_POST['name'];
@@ -17,13 +17,12 @@ if(isset($_POST['submit'])){
     if(empty($name) || empty($datum) || !DateTime::createFromFormat('Y-m-d', $datum))
         $fehler = "Name und Datum müssen gesetzt sein";
     else {
-        $mysqli = new mysqli('localhost', 'root', '', 'kalenderanwendung');
-        $stmt = $mysqli->prepare("INSERT INTO ereignisse (Titel, Datum, Wichtigkeit, Beschreibung) VALUES (?,?,?,?)");
-        $stmt->bind_param('ssss', $name, $datum, $wichtig, $beschreibung);
+        $stmt = $db->prepare("INSERT INTO ereignisse (Titel, Datum, Wichtigkeit, Beschreibung, User) VALUES (?,?,?,?,?)");
+        $stmt->bind_param('sssss', $name, $datum, $wichtig, $beschreibung, $_SESSION['email']);
         $stmt->execute();
         $msg = "<div class='alert alert-success'>Erfolgreich erstellt!</div>";
         $stmt->close();
-        $mysqli->close();
+        $db->close();
     }
 }
 

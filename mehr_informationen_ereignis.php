@@ -1,5 +1,5 @@
 <?php
-
+session_start();
 $datum = (isset ($_POST['datum'])) ? $_POST['datum'] : date("Y-m-d");
 
 include_once 'dbConfig.php';
@@ -16,7 +16,7 @@ $month = date('m', strtotime($datum));
 $year = date('Y', strtotime($datum));
 
 /** get all events from this day */
-if(!$stmt = $db->prepare("select * from `ereignisse` where DAY(Datum) = ? AND MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+if(!$stmt = $db->prepare("select * from `ereignisse` where DAY(Datum) = ? AND MONTH(Datum) = ? AND YEAR(Datum) = ? AND User = '".$_SESSION['email']."'")) {
     $error = $db->errno . ' ' . $db->error;
     echo $error;
 }

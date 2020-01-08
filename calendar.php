@@ -1,5 +1,16 @@
 <?php
 setlocale(LC_TIME, "de_DE");
+session_start();
+if (!isset($_SESSION['name']) || !isset($_SESSION['email'])) {
+    header('location: login/login.php');
+}
+if (isset($_GET['logout'])) {
+    session_destroy();
+    unset($_SESSION['name']);
+    unset($_SESSION['email']);
+    header("location: login/login.php");
+}
+
 class Calendar {
 
     /** Constructor */
@@ -47,7 +58,7 @@ class Calendar {
         global $db;
 
         /** Ereignisse */
-        if(!$stmt = $db->prepare("select * from `ereignisse` where MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+        if(!$stmt = $db->prepare("select * from `ereignisse` where MONTH(Datum) = ? AND YEAR(Datum) = ? AND User = '".$_SESSION['email']."'")) {
             $error = $db->errno . ' ' . $db->error;
             echo $error;
         }
@@ -63,7 +74,7 @@ class Calendar {
         }
 
         /** wichtige Ereignisse */
-        if(!$stmt = $db->prepare("select * from `ereignisse` where `Wichtigkeit` = 1 AND MONTH(Datum) = ? AND YEAR(Datum) = ?")) {
+        if(!$stmt = $db->prepare("select * from `ereignisse` where Wichtigkeit = 1 AND MONTH(Datum) = ? AND YEAR(Datum) = ? AND User = '".$_SESSION['email']."'")) {
             $error = $db->errno . ' ' . $db->error;
             echo $error;
         }
@@ -117,6 +128,8 @@ class Calendar {
         $this->daysInMonth=$this->_daysInMonth($month,$year);  
          
         $content='<div id="calendar">'.
+            '<p>Willkommen <strong>'.$_SESSION['name'].'</strong></p>'.
+            '<p> <a href="index.php?logout=\'1\'" style="color: red;">logout</a> </p>'.
                         '<div class="box">'.
                         $this->_createNavi().
                         '</div>'.
@@ -191,8 +204,8 @@ class Calendar {
             $cellContent=null;
         }
 
-        /** check if date is current day */
-        $class_day = ($this->currentDay == (date("d")+1) && $this->currentMonth == date("m") && $this->currentYear == date("Y") ? "this_today" : "nums_days");
+        /** check if date is (before) current day */
+        $class_day = (date($this->currentDate) == date("Y-m-d") ? "this_today" : ($this->currentDate<date("Y-m-d")?"before_today":"after_today"));
 
         return '<li class="'.$class_day.'">'.$cellContent.'</li>';
     }
@@ -211,7 +224,7 @@ class Calendar {
         return
             '<div class="header">'.
                 '<a class="prev" href="'.$this->naviHref.'?month='.sprintf('%02d',$preMonth).'&year='.$preYear.'">zurück</a>'.
-                    '<span class="title">'.date('Y M',strtotime($this->currentYear.'-'.$this->currentMonth.'-1')).'</span>'.
+                    '<span class="title">'.strftime('%Y %b',mktime(0,0,0,$this->currentMonth,1,$this->currentYear)).'</span>'.
                 '<a class="next" href="'.$this->naviHref.'?month='.sprintf("%02d", $nextMonth).'&year='.$nextYear.'">weiter</a>'.
             '</div>';
     }
@@ -221,12 +234,8 @@ class Calendar {
                  
         $content='';
          
-        foreach($this->dayLabels as $index=>$label){
-
-            /*$content.='<li class="'.($label==6?'end title':'start title').' title">'.$label.'</li>';
-            */
+        foreach($this->dayLabels as $index=>$label)
             $content.='<li class="name_days">'.$label.'</li>';
-        }
          
         return $content;
     }
@@ -235,13 +244,11 @@ class Calendar {
     /** calculate number of weeks in a particular month */
     private function _weeksInMonth($month=null, $year=null){
          
-        if(null==($year)) {
-            $year =  date("Y",time()); 
-        }
+        if(null==($year))
+            $year =  date("Y",time());
          
-        if(null==($month)) {
+        if(null==($month))
             $month = date("m",time());
-        }
          
         // find number of days in this month
         $daysInMonths = $this->_daysInMonth($month,$year);
